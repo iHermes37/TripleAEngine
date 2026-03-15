@@ -1,0 +1,9 @@
+# 依赖目录
+node_modules/
+
+
+# IDE配置
+.vscode/
+.idea/
+*.swp
+*.swo
