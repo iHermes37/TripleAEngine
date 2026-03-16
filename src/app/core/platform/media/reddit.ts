@@ -1,26 +1,77 @@
-// 对应 app/core/platform/media/reddit.py
-
 import Snoowrap from "snoowrap";
 import * as fs from "fs";
 import * as path from "path";
-import { RedditComment, RedditPost, getCreatedDatetime, getPostCreatedDatetime } from "@/app/schemas/user";
+import { RedditComment, RedditPost, getCreatedDatetime, getPostCreatedDatetime } from "../../../schemas/user";
+import axios from 'axios';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+
+// 配置代理
+const PROXY_URL = 'http://127.0.0.1:7890'; // 你的代理地址
+const httpsAgent = new HttpsProxyAgent(PROXY_URL);
+
+// 创建支持代理的 axios 实例
+const proxyAxios = axios.create({
+  httpsAgent,
+  proxy: false, // 禁用内置代理，使用 agent
+  timeout: 60000 // 30秒超时
+});
+
 
 export class rebbitClient {
   private reddit: Snoowrap;
 
+
   constructor() {
+
+    // 设置全局代理
+    const proxyUrl = 'http://127.0.0.1:7890';
+    console.log('使用代理:', proxyUrl);
+    
+    // 方法1：设置环境变量（最可靠）
+    process.env.HTTPS_PROXY = proxyUrl;
+    process.env.HTTP_PROXY = proxyUrl;
+    process.env.ALL_PROXY = proxyUrl;
+
+
     this.reddit = new Snoowrap({
       clientId: "AVTpZ5kVrjWo67D848ghWw",
       clientSecret: "DJ4Aylrklhbq-2XCA-iqOfz-EnSwdA",
       userAgent: "sentiment analysis by /u/Party_Tank_2416",
-      accessToken: "", // snoowrap requires accessToken or username/password
+      username: "Party_Tank_2416", 
+      password: "DJ4Aylrk"    
     });
+
+        // 覆盖 snoowrap 的请求方法，使用代理
+    (this.reddit as any).request = async (options: any) => {
+      try {
+        console.log(`🌐 请求: ${options.method} ${options.url}`);
+        
+        const response = await proxyAxios({
+          method: options.method,
+          url: options.url,
+          headers: options.headers,
+          data: options.body,
+          timeout: 30000
+        });
+
+        return {
+          status: response.status,
+          body: response.data,
+          headers: response.headers
+        };
+      } catch (error: any) {
+        console.error(`❌ 请求失败:`, error.message);
+        throw error;
+      }
+    };
+
+
   }
 
   async search_in_subreddit(
     keyword: string,
     subreddit_name: string,
-    limit: number = 10
+    limit: number = 1
   ): Promise<Record<string, unknown>[]> {
     /**
      * 在特定subreddit中搜索帖子
@@ -28,10 +79,13 @@ export class rebbitClient {
     try {
       console.log(`在 r/${subreddit_name} 中搜索 '${keyword}'...`);
       const subreddit = this.reddit.getSubreddit(subreddit_name);
-      const results = await subreddit.search({
+      const searchListing = await this.reddit.getSubreddit(subreddit_name).search({
         query: keyword,
-        limit,
-        time: "all", // time_filter可以是'all', 'day', 'week', 'month', 'year'
+        sort: "relevance"
+      });
+
+      const results = await searchListing.fetchMore({ 
+        amount: limit 
       });
 
       const posts: Record<string, unknown>[] = [];
@@ -62,51 +116,78 @@ export class rebbitClient {
   }
 
   async get_all_comments(
-    post_id: string,
-    limit: number = 1
-  ): Promise<RedditComment[]> {
-    /**
-     * 获取帖子的所有评论（包括嵌套评论）
-     */
-    try {
-      const submission = await this.reddit.getSubmission(post_id).fetch();
-      // limit=None表示获取所有评论
-      const commentList = await submission.comments.fetchMore({ amount: limit });
+  post_id: string,
+  limit: number = 1
+): Promise<RedditComment[]> {
+  try {
+    console.log(`获取帖子 ${post_id} 的评论...`);
+    const submissionPromise: any = this.reddit.getSubmission(post_id);
+    const submission = await submissionPromise.fetch();
+    
+    // 获取评论
+    await submission.comments.fetchMore({ amount: limit });
 
-      const comments: RedditComment[] = [];
+    const comments: RedditComment[] = [];
 
-      function extract_comments(comment_list: Snoowrap.Listing<Snoowrap.Comment | Snoowrap.MoreComments>, depth: number = 0): void {
-        for (const comment of comment_list) {
-          if ("body" in comment) {
-            const comment_data: RedditComment = {
-              body: (comment as Snoowrap.Comment).body,
-              score: (comment as Snoowrap.Comment).score,
-              created_utc: (comment as Snoowrap.Comment).created_utc,
-            };
-            comments.push(comment_data);
+    // 递归函数：把所有评论（包括嵌套的）都放到 comments 数组里
+    const extractAllComments = (commentList: any) => {
+      // 如果没数据就返回
+      if (!commentList) return;
+      
+      // 确保是数组
+      if (!Array.isArray(commentList)) return;
 
-            // 递归获取回复
-            if ("replies" in comment && (comment as Snoowrap.Comment).replies) {
-              extract_comments((comment as Snoowrap.Comment).replies as unknown as Snoowrap.Listing<Snoowrap.Comment | Snoowrap.MoreComments>, depth + 1);
+      for (const item of commentList) {
+        // 跳过 "加载更多" 的占位符
+        if (item.count !== undefined) continue;
+        
+        // 获取评论数据
+        const comment = item.data || item;
+        
+        // 如果是有效评论
+        if (comment.body) {
+          // 加到结果数组
+          comments.push({
+            body: comment.body,
+            score: comment.score || 0,
+            created_utc: comment.created_utc || 0,
+          });
+
+          // 如果有回复，递归处理
+          if (comment.replies) {
+            // replies 可能是数组，也可能是对象
+            if (Array.isArray(comment.replies)) {
+              extractAllComments(comment.replies);
+            } else if (comment.replies.data?.children) {
+              extractAllComments(comment.replies.data.children);
             }
           }
         }
       }
+    };
 
-      extract_comments(commentList as unknown as Snoowrap.Listing<Snoowrap.Comment | Snoowrap.MoreComments>);
-      return comments;
-    } catch (e) {
-      console.log(`获取评论时出错: ${e}`);
-      return [];
-    }
+    // 开始提取所有评论
+    extractAllComments(submission.comments);
+    
+    console.log(`✅ 共提取到 ${comments.length} 条评论`);
+    return comments;
+
+  } catch (e: any) {
+    console.error(`❌ 获取评论失败:`, e.message);
+    return [];
   }
+}
+  
 
   async get_post(post_id: string): Promise<RedditPost> {
     if (!post_id) {
       throw new Error("post_id 不能为空");
     }
 
-    const submission = await this.reddit.getSubmission(post_id).fetch();
+    const submissionPromise: any = this.reddit.getSubmission(post_id);
+    const submission = await submissionPromise.fetch();
+
+    console.log(`获取帖子 ${post_id}...`);  
 
     const post: RedditPost = {
       id: post_id,
@@ -137,33 +218,72 @@ export class rebbitClient {
     const post_ids: string[] = [];
 
     try {
-      const search_results = await this.reddit.getSubreddit("all").search({
+      console.log(`\n🔍 搜索 Reddit: "${question}"`);
+      
+      // 添加延迟避免限流
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const searchListing = await this.reddit.getSubreddit("all").search({
         query: question,
-        limit,
-        sort: "relevance", // 按相关度排序
+        sort: "relevance"
       });
 
-      for (const submission of search_results) {
-        post_ids.push(submission.id);
-        console.log(`找到帖子: ${submission.title.slice(0, 50)}... (r/${submission.subreddit_name_prefixed})`);
-      }
-    } catch (e) {
-      console.log(`搜索时出错: ${e}`);
-    }
+      const search_results = await searchListing.fetchMore({ 
+        amount: limit 
+      });
 
-    return post_ids;
+      // 手动截取前 limit 条
+      const limited_results = search_results.slice(0, limit);
+
+      console.log(`✅ 找到 ${limited_results.length} 个帖子:`);
+      
+      for (const submission of limited_results) {
+        post_ids.push(submission.id);
+        console.log(`  - ${submission.title?.slice(0, 60)}`);
+        console.log(`    r/${submission.subreddit_name_prefixed} | 👍 ${submission.score} | 💬 ${submission.num_comments}`);
+      }
+
+    } catch (e: any) {
+      console.error(`❌ 搜索时出错:`, e.message);
+      console.error(`❌ 搜索时出错:`);
+    
+    // 详细打印 AggregateError
+    if (e.name === 'AggregateError') {
+      console.error('这是一个聚合错误，包含多个子错误:');
+      if (e.errors) {
+        e.errors.forEach((err: any, index: number) => {
+          console.error(`\n--- 错误 ${index + 1} ---`);
+          console.error('消息:', err.message);
+          console.error('状态码:', err.statusCode);
+          console.error('状态信息:', err.statusMessage);
+          console.error('URL:', err.options?.url);
+          console.error('方法:', err.options?.method);
+          if (err.response) {
+            console.error('响应数据:', err.response.body);
+          }
+        });
+      }
+    } else {
+      console.error('错误名称:', e.name);
+      console.error('错误消息:', e.message);
+      console.error('状态码:', e.statusCode);
+      console.error('完整错误:', e);
+    }
   }
+
+  return post_ids;
+}
 
   async save_posts_with_comments_json(
     posts: RedditPost[],
     filename: string
-  ): Promise<string | null> {
+  ): Promise<string> {
     /**
      * 保存帖子和评论到同一个CSV文件（使用JSON字段存储评论列表）
      */
     if (!posts || posts.length === 0) {
       console.log("没有数据可保存");
-      return null;
+      return  '';
     }
 
     const rows = [];

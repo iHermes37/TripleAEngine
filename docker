@@ -1,0 +1,11 @@
+npm install pm2 -g
+
+# 启动 Next.js
+pm2 start "npm run dev" --name "nextjs"
+
+# 启动 Worker
+pm2 start "ts-node src/worker/index.ts" --name "holiday-worker"
+
+# 设置开机自启
+pm2 startup
+pm2 save

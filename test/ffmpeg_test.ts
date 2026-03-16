@@ -73,6 +73,6 @@ function extract_first_last_frames_simple(input_file: string): void {
 }
 
 // 使用示例
-const input_video =
-  "D:\\Workbench\\Application\\Agent\\TripleAEngine\\app\\core\\aigc\\my_image2video.mp4";
+const input_video = "C:/Users/11252/Desktop桌面/y_image2video.mp4";
+
 extract_first_last_frames_simple(input_video);

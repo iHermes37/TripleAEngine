@@ -7,6 +7,232 @@ import { VideoInfo } from "@/app/schemas/video";
 
 // google-auth-library 对应 google.auth / google.oauth2
 import { OAuth2Client } from "google-auth-library";
+import {VideoComments} from "../../../schemas/video"
+
+
+// ==================== 配置区域 ====================
+const API_KEY = "AIzaSyBaZWu2nCKhhNB_FhYGX5P1XWSzAYX4mOM";
+const VIDEO_URL = "https://youtu.be/uQJF5fcjFbg?si=VW-O19wOfYYnDORy---";
+const VIDEO_ID = "uQJF5fcjFbg"; // 从分享链接中提取
+
+// 代理设置（根据你的代理软件修改）
+const PROXY = "https://127.0.0.1:7890"; // 你的Clash端口
+// =================================================
+
+const proxies = {
+  protocol: "http",
+  host: "127.0.0.1",
+  port: 7890,
+};
+
+export class YouTubeCommentCollector {
+  // 使用axios的YouTube评论采集器
+  private api_key: string;
+  private proxies: { host: string; port: number } | null;
+  private base_url: string;
+  public request_count: number;
+
+  constructor(
+    api_key: string,
+    proxies: { host: string; port: number } | null = null
+  ) {
+    this.api_key = api_key;
+    this.proxies = proxies;
+    this.base_url = "https://www.googleapis.com/youtube/v3";
+    this.request_count = 0;
+  }
+
+  
+  async _make_request(
+    url: string,
+    params: Record<string, unknown>
+  ): Promise<Record<string, unknown> | null> {
+    // 发送带代理的请求
+    try {
+      const response = await axios.get(url, {
+        params,
+        proxy: this.proxies ?? undefined,
+        timeout: 30000,
+      });
+      this.request_count += 1;
+      return response.data;
+    } catch (e: unknown) {
+      if (axios.isAxiosError(e)) {
+        if (e.message?.toLowerCase().includes("proxy")) {
+          console.log(`❌ 代理错误: ${e}`);
+          console.log(`   请确认代理 ${PROXY} 是否可用`);
+        } else if (e.code === "ECONNREFUSED" || e.code === "ENOTFOUND") {
+          console.log(`❌ 连接错误: ${e}`);
+        } else if (e.code === "ETIMEDOUT") {
+          console.log("❌ 请求超时");
+        } else {
+          console.log(`❌ 请求失败: ${e}`);
+        }
+      } else {
+        console.log(`❌ 请求失败: ${e}`);
+      }
+      return null;
+    }
+  }
+
+  async get_video_info(
+    video_id: string
+  ): Promise<Record<string, unknown> | null> {
+    // 获取视频信息
+    const url = `${this.base_url}/videos`;
+    const params = {
+      part: "snippet,statistics",
+      id: video_id,
+      key: this.api_key,
+    };
+
+    const data = await this._make_request(url, params);
+    if (
+      !data ||
+      !Array.isArray(data["items"]) ||
+      (data["items"] as unknown[]).length === 0
+    ) {
+      console.log("❌ 未找到视频信息");
+      return null;
+    }
+
+    const item = (data["items"] as Record<string, unknown>[])[0];
+    const snippet = item["snippet"] as Record<string, unknown>;
+    const stats = item["statistics"] as Record<string, unknown>;
+
+    return {
+      title: snippet["title"],
+      channel: snippet["channelTitle"],
+      published_at: snippet["publishedAt"],
+      view_count: parseInt((stats["viewCount"] as string) ?? "0"),
+      like_count: parseInt((stats["likeCount"] as string) ?? "0"),
+      comment_count: parseInt((stats["commentCount"] as string) ?? "0"),
+    };
+  }
+
+  async get_video_comments(
+    video_id: string,
+    max_comments: number =5
+  ): Promise<VideoComments[]> {
+    // 获取评论（包括回复）
+    const comments: VideoComments[] = [];
+    let next_page_token: string | null = null;
+
+    while (comments.length < max_comments) {
+      const url = `${this.base_url}/commentThreads`;
+      const params: Record<string, unknown> = {
+        part: "snippet,replies",
+        videoId: video_id,
+        maxResults: Math.min(100, max_comments - comments.length),
+        key: this.api_key,
+        order: "relevance",
+      };
+
+      if (next_page_token) {
+        params["pageToken"] = next_page_token;
+      }
+
+      const data = await this._make_request(url, params);
+      if (!data || !Array.isArray(data["items"])) {
+        break;
+      }
+
+      for (const item of data["items"] as Record<string, unknown>[]) {
+        if (comments.length >= max_comments) break;
+
+        // 主评论
+        const top_comment = (
+          (item["snippet"] as Record<string, unknown>)[
+            "topLevelComment"
+          ] as Record<string, unknown>
+        )["snippet"] as Record<string, unknown>;
+
+
+
+        let comment : VideoComments={
+            publishedAt: top_comment["publishedAt"] as string,
+            textDisplay: top_comment["textDisplay"] as string,
+            likeCount: top_comment["likeCount"] as number,
+        }; 
+          
+        
+
+        comments.push(comment);
+
+        // 处理回复
+        if ("replies" in item) {
+          const replies = (
+            (item["replies"] as Record<string, unknown>)["comments"] as Record<
+              string,
+              unknown
+            >[]
+          );
+          for (const reply of replies) {
+            if (comments.length >= max_comments) break;
+            const reply_snippet = reply["snippet"] as Record<string, unknown>;
+
+            let comment: VideoComments = {
+              publishedAt: reply_snippet["publishedAt"] as string,  // ← 改为 reply_snippet
+              textDisplay: reply_snippet["textDisplay"] as string,  // ← 改为 reply_snippet
+              likeCount: reply_snippet["likeCount"] as number,      // ← 改为 reply_snippet
+          };
+          comments.push(comment);
+          }
+        }
+      }
+
+      next_page_token = (data["nextPageToken"] as string) ?? null;
+      if (!next_page_token) break;
+
+      await new Promise((resolve) => setTimeout(resolve, 500)); // 礼貌性延迟
+    }
+
+    return comments.slice(0, max_comments);
+  }
+
+  save_to_csv(
+    comments: Record<string, unknown>[],
+    video_info: Record<string, unknown> | null,
+    filename_prefix: string = "youtube_comments"
+  ): void {
+    // 保存数据
+    if (!comments.length) {
+      console.log("没有评论可保存");
+      return;
+    }
+
+    const timestamp = new Date()
+      .toISOString()
+      .replace(/[:\-T]/g, "")
+      .slice(0, 15);
+
+    // 保存评论
+    const headers = Object.keys(comments[0]).join(",");
+    const csvRows = comments.map((row) =>
+      Object.values(row)
+        .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
+        .join(",")
+    );
+    const csv = "\uFEFF" + [headers, ...csvRows].join("\n");
+
+    const comments_file = `${filename_prefix}_comments_${timestamp}.csv`;
+    fs.writeFileSync(comments_file, csv, "utf8");
+    console.log(`✅ 已保存 ${comments.length} 条评论到: ${comments_file}`);
+
+    // 保存视频信息
+    if (video_info) {
+      const info_headers = Object.keys(video_info).join(",");
+      const info_row = Object.values(video_info)
+        .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
+        .join(",");
+      const info_csv = "\uFEFF" + [info_headers, info_row].join("\n");
+
+      const info_file = `${filename_prefix}_info_${timestamp}.csv`;
+      fs.writeFileSync(info_file, info_csv, "utf8");
+      console.log(`✅ 已保存视频信息到: ${info_file}`);
+    }
+  }
+}
 
 export class youtubeClient {
   static SCOPES = ["https://www.googleapis.com/auth/youtube.upload"];
@@ -238,9 +464,11 @@ export class youtubeClient {
     }
   }
 
-  async crawl_video_comments(video_id: string): Promise<void> {
-    // pass
-  }
+async crawl_video_comments(video_id: string): Promise<VideoComments[]> {
+    const commentcollector = new YouTubeCommentCollector(API_KEY, proxies);
+    const comments: VideoComments[] = await commentcollector.get_video_comments(video_id); // ← await
+    return comments;
+}
 
   async get_video_info(video_id: string): Promise<void> {
     // pass

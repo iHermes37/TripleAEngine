@@ -4,6 +4,7 @@ export interface RedditComment {
   created_utc: number;
   body: string; // min_length=1
   score: number;
+  replies?: RedditComment[];
 }
 
 // 对应 @property created_datetime

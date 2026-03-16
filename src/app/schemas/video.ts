@@ -21,3 +21,10 @@ export interface VideoInfo {
   status: VideoStatus;
   recording_location?: Record<string, unknown> | null; // Optional[dict]
 }
+
+
+export interface VideoComments{
+    publishedAt: string | null;
+    textDisplay:string| null,
+    likeCount:number| null,
+}

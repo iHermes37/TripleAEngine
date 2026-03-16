@@ -23,6 +23,7 @@ const SharedDocAnnotation = Annotation.Root({
 
 export type SharedDoc = typeof SharedDocAnnotation.State;
 
+
 export function prepare_node(): void {
   // pass
 }
@@ -86,6 +87,7 @@ export function route_to_assign_work(state: SharedDoc): Send[] {
 
   return sends;
 }
+
 
 export class insights {
   constructor() {}

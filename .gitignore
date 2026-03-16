@@ -1,9 +1,37 @@
 # 依赖目录
 node_modules/
+/node_modules/**  
+/node_modules
 
+# 配置文件
+src/config/llm.yaml
 
 # IDE配置
 .vscode/
 .idea/
 *.swp
 *.swo
+
+
+# Next.js build output
+.next/
+.next/**
+
+
+out/
+build/
+dist/
+
+
+# Playwright test data
+playwright-data/
+playwright-data/**
+
+
+reddit_data/*
+
+
+src/config/config.yaml
+
+
+test/*/

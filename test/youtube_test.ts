@@ -13,6 +13,7 @@ const PROXY = "http://127.0.0.1:7890"; // 你的Clash端口
 // =================================================
 
 const proxies = {
+  protocol: "http",
   host: "127.0.0.1",
   port: 7890,
 };
@@ -34,6 +35,7 @@ export class YouTubeCommentCollector {
     this.request_count = 0;
   }
 
+  
   async _make_request(
     url: string,
     params: Record<string, unknown>
@@ -234,7 +236,7 @@ async function test_proxy(): Promise<boolean> {
   try {
     const r = await axios.get(
       "https://www.googleapis.com/youtube/v3/videos?part=id&id=uQJF5fcjFbg",
-      { proxy: proxies, timeout: 10000 }
+      { proxy: proxies, timeout: 10000 ,}
     );
     console.log(`✅ 代理工作正常 (状态码: ${r.status})`);
     return true;
