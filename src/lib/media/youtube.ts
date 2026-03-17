@@ -3,11 +3,11 @@
 import axios from "axios";
 import * as fs from "fs";
 import * as path from "path";
-import { VideoInfo } from "@/app/schemas/video";
+import { VideoInfo } from "@/types/video";
 
 // google-auth-library 对应 google.auth / google.oauth2
 import { OAuth2Client } from "google-auth-library";
-import {VideoComments} from "../../../schemas/video"
+import {VideoComments} from "../../types/video"
 
 
 // ==================== 配置区域 ====================

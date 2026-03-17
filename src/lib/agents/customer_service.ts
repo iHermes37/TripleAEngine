@@ -1,5 +1,5 @@
-import { VideoComments } from "../../../schemas/video";
-import { youtubeClient } from "../../../core/platform/media/youtube";
+import { VideoComments } from "../../types/video";
+import { youtubeClient } from "../media/youtube";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 

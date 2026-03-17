@@ -1,7 +1,7 @@
 // 对应 app/service/insights/team/user_research.py
 
-import { rebbitClient } from "../../../core/platform/media/reddit";
-import { RedditPost } from "../../../schemas/user";
+import { rebbitClient } from "../media/reddit";
+import { RedditPost } from "../../types/user";
 import { ChatOpenAI } from "@langchain/openai";
 import * as fs from 'fs';
 import csv from 'csv-parser';

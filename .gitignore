@@ -23,6 +23,8 @@ build/
 dist/
 
 
+
+
 # Playwright test data
 playwright-data/
 playwright-data/**
@@ -35,3 +37,5 @@ src/config/config.yaml
 
 
 test/*/
+
+doc/*/

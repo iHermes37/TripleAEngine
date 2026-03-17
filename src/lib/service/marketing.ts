@@ -1,7 +1,6 @@
 // 对应 app/service/marketing/marketing.py
 
-import { StateGraph } from "@langchain/langgraph";
-import { Annotation } from "@langchain/langgraph";
+import { StateGraph,Annotation } from "@langchain/langgraph";
 
 export function content_editing_node(): void {
   // pass

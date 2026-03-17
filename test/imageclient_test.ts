@@ -2,7 +2,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import { ImageClient } from "../src/app/core/aigc/imageclient";
+import { ImageClient } from "../src/lib/models/aigc/imageclient";
 
 const logger = {
   info: (msg: string) => console.info(`[INFO] ${msg}`),

@@ -1,7 +1,7 @@
 import Snoowrap from "snoowrap";
 import * as fs from "fs";
 import * as path from "path";
-import { RedditComment, RedditPost, getCreatedDatetime, getPostCreatedDatetime } from "../../../schemas/user";
+import { RedditComment, RedditPost, getCreatedDatetime, getPostCreatedDatetime } from "../../types/user";
 import axios from 'axios';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 
