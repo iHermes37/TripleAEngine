@@ -18,11 +18,11 @@ async function analyzeWithLLM(question: string, platform: string): Promise<strin
   try {
     const { ChatOpenAI } = await import("@langchain/openai");
     const model = new ChatOpenAI({
-      model: "deepseek-chat",
+      model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
       temperature: 0.3,
       configuration: {
-        baseURL: "https://api.deepseek.com/v1",
-        apiKey: process.env.DEEPSEEK_API_KEY || "sk-8c0f97033741425da1b4ce518b5401c3",
+        baseURL: process.env.DEEPSEEK_API_BASE!,
+        apiKey: process.env.DEEPSEEK_API_KEY!,
       },
     });
     const prompt = `你是一位专业的市场研究分析师。请针对以下用户调研问题，模拟生成一份用户画像分析报告：

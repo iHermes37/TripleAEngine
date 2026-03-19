@@ -10,9 +10,9 @@ class WanxVideoGenerator {
   private headers: Record<string, string>;
 
   constructor() {
-    this.api_key = "sk-6b39789438da4cd18b824ca2fdf2c018";
+    this.api_key = process.env.DASHSCOPE_API_KEY || "";
     this.base_url =
-      "https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis";
+      `${process.env.DASHSCOPE_API_BASE || "https://dashscope.aliyuncs.com/api/v1"}/services/aigc/video-generation/video-synthesis`;
     this.headers = {
       Authorization: `Bearer ${this.api_key}`,
       "X-DashScope-Async": "enable",
@@ -29,7 +29,7 @@ class WanxVideoGenerator {
   ): Promise<string | null> {
     // 提交视频生成任务
     const payload = {
-      model: "wan2.6-r2v-flash",
+      model: process.env.DASHSCOPE_VIDEO_MODEL || "wan2.6-r2v-flash",
       input: {
         prompt,
         reference_urls,

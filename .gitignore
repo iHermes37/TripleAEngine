@@ -17,6 +17,7 @@ src/config/llm.yaml
 .next/
 .next/**
 
+.env
 
 out/
 build/

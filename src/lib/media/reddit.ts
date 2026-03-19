@@ -6,7 +6,7 @@ import axios from 'axios';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 
 // 配置代理
-const PROXY_URL = 'http://127.0.0.1:7890'; // 你的代理地址
+const PROXY_URL = process.env.PROXY_URL || 'http://127.0.0.1:7890';
 const httpsAgent = new HttpsProxyAgent(PROXY_URL);
 
 // 创建支持代理的 axios 实例
@@ -24,7 +24,7 @@ export class rebbitClient {
   constructor() {
 
     // 设置全局代理
-    const proxyUrl = 'http://127.0.0.1:7890';
+    const proxyUrl = process.env.PROXY_URL || 'http://127.0.0.1:7890';
     console.log('使用代理:', proxyUrl);
     
     // 方法1：设置环境变量（最可靠）
@@ -34,11 +34,11 @@ export class rebbitClient {
 
 
     this.reddit = new Snoowrap({
-      clientId: "AVTpZ5kVrjWo67D848ghWw",
-      clientSecret: "DJ4Aylrklhbq-2XCA-iqOfz-EnSwdA",
-      userAgent: "sentiment analysis by /u/Party_Tank_2416",
-      username: "Party_Tank_2416", 
-      password: "DJ4Aylrk"    
+      clientId: process.env.REDDIT_CLIENT_ID!,
+      clientSecret: process.env.REDDIT_CLIENT_SECRET!,
+      userAgent: process.env.REDDIT_USER_AGENT!,
+      username: process.env.REDDIT_USERNAME!,
+      password: process.env.REDDIT_PASSWORD!,
     });
 
         // 覆盖 snoowrap 的请求方法，使用代理

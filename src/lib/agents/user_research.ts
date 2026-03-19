@@ -10,11 +10,11 @@ import csv from 'csv-parser';
 async function analyzeWithLLM(commentsText: string): Promise<string> {
   // 这里调用您之前设置的大模型
   const model = new ChatOpenAI({
-    model: "deepseek-chat",
+    model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
     temperature: 0.1,
     configuration: {
-      baseURL: "https://api.deepseek.com/v1",
-      apiKey: "sk-8c0f97033741425da1b4ce518b5401c3",
+      baseURL: process.env.DEEPSEEK_API_BASE!,
+      apiKey: process.env.DEEPSEEK_API_KEY!,
     },
   });
   

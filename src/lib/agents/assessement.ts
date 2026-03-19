@@ -5,12 +5,12 @@ import { ChatMessageHistory } from "@langchain/community/stores/message/in_memor
 import { RunnableWithMessageHistory } from "@langchain/core/runnables";
 
 const model = new ChatOpenAI({
-    model: "deepseek-chat",
+    model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
     temperature: 0.1,
     maxTokens: 2000,
     configuration: {
-        baseURL: "https://api.deepseek.com/v1",
-        apiKey: "sk-8c0f97033741425da1b4ce518b5401c3",
+        baseURL: process.env.DEEPSEEK_API_BASE!,
+        apiKey: process.env.DEEPSEEK_API_KEY!,
     },
     maxRetries: 3,
     timeout: 60000,

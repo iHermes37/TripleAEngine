@@ -11,18 +11,19 @@ import {VideoComments} from "../../types/video"
 
 
 // ==================== 配置区域 ====================
-const API_KEY = "AIzaSyBaZWu2nCKhhNB_FhYGX5P1XWSzAYX4mOM";
+const API_KEY = process.env.YOUTUBE_API_KEY!;
 const VIDEO_URL = "https://youtu.be/uQJF5fcjFbg?si=VW-O19wOfYYnDORy---";
 const VIDEO_ID = "uQJF5fcjFbg"; // 从分享链接中提取
 
 // 代理设置（根据你的代理软件修改）
-const PROXY = "https://127.0.0.1:7890"; // 你的Clash端口
+const PROXY = process.env.PROXY_URL || "http://127.0.0.1:7890";
 // =================================================
 
+const _proxyUrl = new URL(PROXY);
 const proxies = {
   protocol: "http",
-  host: "127.0.0.1",
-  port: 7890,
+  host: _proxyUrl.hostname,
+  port: parseInt(_proxyUrl.port, 10),
 };
 
 export class YouTubeCommentCollector {
@@ -236,9 +237,9 @@ export class YouTubeCommentCollector {
 
 export class youtubeClient {
   static SCOPES = ["https://www.googleapis.com/auth/youtube.upload"];
-  static CLIENT_SECRETS_FILE = "D:\\Workbench\\Application\\Agent\\TripleAEngine\\config\\youtube_client.json";
-  static TOKEN_PICKLE_FILE = "youtube_token.json"; // pickle -> JSON
-  static PROXY = "http://127.0.0.1:7890";
+  static CLIENT_SECRETS_FILE = process.env.YOUTUBE_CLIENT_SECRETS_FILE || "config/youtube_client.json";
+  static TOKEN_PICKLE_FILE = process.env.YOUTUBE_TOKEN_FILE || "youtube_token.json"; // pickle -> JSON
+  static PROXY = process.env.PROXY_URL || "http://127.0.0.1:7890";
   static proxies = {
     http: youtubeClient.PROXY,
     https: youtubeClient.PROXY,
@@ -308,8 +309,8 @@ export class youtubeClient {
       const response = await axios.post(url, JSON.stringify(metadata), {
         headers,
         proxy: {
-          host: "127.0.0.1",
-          port: 7890,
+          host: new URL(youtubeClient.PROXY).hostname,
+          port: parseInt(new URL(youtubeClient.PROXY).port, 10),
         },
         timeout: 30000,
       });
@@ -384,7 +385,7 @@ export class youtubeClient {
         try {
           const response = await axios.put(upload_url, actualChunk, {
             headers,
-            proxy: { host: "127.0.0.1", port: 7890 },
+            proxy: { host: new URL(youtubeClient.PROXY).hostname, port: parseInt(new URL(youtubeClient.PROXY).port, 10) },
             timeout: 60000,
           });
 

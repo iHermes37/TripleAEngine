@@ -23,9 +23,9 @@ export class ImageClient {
   private api_key: string;
 
   constructor() {
-    this.base_http_api_url = "https://dashscope.aliyuncs.com/api/v1";
+    this.base_http_api_url = process.env.DASHSCOPE_API_BASE || "https://dashscope.aliyuncs.com/api/v1";
     // ✅ 从环境变量读取 API Key
-    this.api_key = "sk-6b39789438da4cd18b824ca2fdf2c018";
+    this.api_key = process.env.DASHSCOPE_API_KEY || "";
     
     if (!this.api_key) {
       logger.error("请设置 DASHSCOPE_API_KEY 环境变量");
@@ -53,7 +53,7 @@ export class ImageClient {
       
       // ✅ 修正1: 按照 API 要求的格式构造请求体
       const requestBody = {
-        model: "qwen-image-2.0-pro",
+        model: process.env.DASHSCOPE_IMAGE_MODEL || "qwen-image-2.0-pro",
         input: {
           messages: [
             {
@@ -168,7 +168,7 @@ export class ImageClient {
 
       // ✅ 修正4: 图生图的正确格式
       const requestBody = {
-        model: "wanx-v1",  // 通义万相模型
+        model: process.env.DASHSCOPE_TEXT2IMAGE_MODEL || "wanx-v1",  // 通义万相模型
         input: {
           prompt: prompt,
           negative_prompt: negative_prompt || "",
