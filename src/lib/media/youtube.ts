@@ -3,12 +3,15 @@
 import axios from "axios";
 import * as fs from "fs";
 import * as path from "path";
-import { VideoInfo } from "@/types/video";
+import { VideoData, VideoInfo } from "@/types/video";
 
 // google-auth-library 对应 google.auth / google.oauth2
 import { OAuth2Client } from "google-auth-library";
-import {VideoComments} from "../../types/video"
-
+import { SocialMediaService } from "@/types/media";
+import { Platform } from "@/types/constant";
+import { securitycenter } from "googleapis/build/src/apis/securitycenter";
+import { ArticleData, ArticleInfo } from "@/types/article";
+import { MediaComment } from "@/types/comment";
 
 // ==================== 配置区域 ====================
 const API_KEY = process.env.YOUTUBE_API_KEY!;
@@ -111,85 +114,170 @@ export class YouTubeCommentCollector {
     };
   }
 
-  async get_video_comments(
-    video_id: string,
-    max_comments: number =5
-  ): Promise<VideoComments[]> {
-    // 获取评论（包括回复）
-    const comments: VideoComments[] = [];
-    let next_page_token: string | null = null;
+  // async get_video_comments(
+  //   video_id: string,
+  //   max_comments: number =5
+  // ): Promise<MediaComment[]> {
+  //   // 获取评论（包括回复）
+  //   const comments: MediaComment[] = [];
+  //   let next_page_token: string | null = null;
 
-    while (comments.length < max_comments) {
-      const url = `${this.base_url}/commentThreads`;
-      const params: Record<string, unknown> = {
-        part: "snippet,replies",
-        videoId: video_id,
-        maxResults: Math.min(100, max_comments - comments.length),
-        key: this.api_key,
-        order: "relevance",
-      };
+  //   while (comments.length < max_comments) {
+  //     const url = `${this.base_url}/commentThreads`;
+  //     const params: Record<string, unknown> = {
+  //       part: "snippet,replies",
+  //       videoId: video_id,
+  //       maxResults: Math.min(100, max_comments - comments.length),
+  //       key: this.api_key,
+  //       order: "relevance",
+  //     };
 
-      if (next_page_token) {
-        params["pageToken"] = next_page_token;
-      }
+  //     if (next_page_token) {
+  //       params["pageToken"] = next_page_token;
+  //     }
 
-      const data = await this._make_request(url, params);
-      if (!data || !Array.isArray(data["items"])) {
-        break;
-      }
+  //     const data = await this._make_request(url, params);
+  //     if (!data || !Array.isArray(data["items"])) {
+  //       break;
+  //     }
 
-      for (const item of data["items"] as Record<string, unknown>[]) {
-        if (comments.length >= max_comments) break;
+  //     for (const item of data["items"] as Record<string, unknown>[]) {
+  //       if (comments.length >= max_comments) break;
 
-        // 主评论
-        const top_comment = (
-          (item["snippet"] as Record<string, unknown>)[
-            "topLevelComment"
-          ] as Record<string, unknown>
-        )["snippet"] as Record<string, unknown>;
+  //       // 主评论
+  //       const top_comment = (
+  //         (item["snippet"] as Record<string, unknown>)[
+  //           "topLevelComment"
+  //         ] as Record<string, unknown>
+  //       )["snippet"] as Record<string, unknown>;
 
 
 
-        let comment : VideoComments={
-            publishedAt: top_comment["publishedAt"] as string,
-            textDisplay: top_comment["textDisplay"] as string,
-            likeCount: top_comment["likeCount"] as number,
-        }; 
+  //       let comment : MediaComment={
+  //           publishedAt: top_comment["publishedAt"] as string,
+  //           textDisplay: top_comment["textDisplay"] as string,
+  //           likeCount: top_comment["likeCount"] as number,
+  //       }; 
           
         
 
-        comments.push(comment);
+  //       comments.push(comment);
 
-        // 处理回复
-        if ("replies" in item) {
-          const replies = (
-            (item["replies"] as Record<string, unknown>)["comments"] as Record<
-              string,
-              unknown
-            >[]
-          );
-          for (const reply of replies) {
-            if (comments.length >= max_comments) break;
-            const reply_snippet = reply["snippet"] as Record<string, unknown>;
+  //       // 处理回复
+  //       if ("replies" in item) {
+  //         const replies = (
+  //           (item["replies"] as Record<string, unknown>)["comments"] as Record<
+  //             string,
+  //             unknown
+  //           >[]
+  //         );
+  //         for (const reply of replies) {
+  //           if (comments.length >= max_comments) break;
+  //           const reply_snippet = reply["snippet"] as Record<string, unknown>;
 
-            let comment: VideoComments = {
-              publishedAt: reply_snippet["publishedAt"] as string,  // ← 改为 reply_snippet
-              textDisplay: reply_snippet["textDisplay"] as string,  // ← 改为 reply_snippet
-              likeCount: reply_snippet["likeCount"] as number,      // ← 改为 reply_snippet
+  //           let comment: MediaComment = {
+  //             publishedAt: reply_snippet["publishedAt"] as string,  // ← 改为 reply_snippet
+  //             textDisplay: reply_snippet["textDisplay"] as string,  // ← 改为 reply_snippet
+  //             likeCount: reply_snippet["likeCount"] as number,      // ← 改为 reply_snippet
+  //         };
+  //         comments.push(comment);
+  //         }
+  //       }
+  //     }
+
+  //     next_page_token = (data["nextPageToken"] as string) ?? null;
+  //     if (!next_page_token) break;
+
+  //     await new Promise((resolve) => setTimeout(resolve, 500)); // 礼貌性延迟
+  //   }
+
+  //   return comments.slice(0, max_comments);
+  // }
+  //------------
+  async get_video_comments(
+      video_id: string,
+      max_comments: number = 5
+    ): Promise<MediaComment[]> {
+      // 获取评论（包括回复）
+      const comments: MediaComment[] = [];
+      let next_page_token: string | null = null;
+
+      while (comments.length < max_comments) {
+        const url = `${this.base_url}/commentThreads`;
+        const params: Record<string, unknown> = {
+          part: "snippet,replies",
+          videoId: video_id,
+          maxResults: Math.min(100, max_comments - comments.length),
+          key: this.api_key,
+          order: "relevance",
+        };
+
+        if (next_page_token) {
+          params["pageToken"] = next_page_token;
+        }
+
+        const data = await this._make_request(url, params);
+        if (!data || !Array.isArray(data["items"])) {
+          break;
+        }
+
+        for (const item of data["items"] as Record<string, unknown>[]) {
+          if (comments.length >= max_comments) break;
+
+          // 主评论
+          const top_comment = (
+            (item["snippet"] as Record<string, unknown>)[
+              "topLevelComment"
+            ] as Record<string, unknown>
+          )["snippet"] as Record<string, unknown>;
+
+          // 获取回复数量
+          const total_reply_count = (item["snippet"] as Record<string, unknown>)["totalReplyCount"] as number || 0;
+
+          let comment: MediaComment = {
+            createdAtUTC: new Date(top_comment["publishedAt"] as string).getTime(),
+            body: top_comment["textDisplay"] as string,
+            upvotes: top_comment["likeCount"] as number,
+            replyCount: total_reply_count,
           };
+
           comments.push(comment);
+
+          // 处理回复
+          if ("replies" in item && total_reply_count > 0) {
+            const replies = (
+              (item["replies"] as Record<string, unknown>)["comments"] as Record<
+                string,
+                unknown
+              >[]
+            );
+            
+            if (replies && Array.isArray(replies)) {
+              for (const reply of replies) {
+                if (comments.length >= max_comments) break;
+                const reply_snippet = reply["snippet"] as Record<string, unknown>;
+
+                let reply_comment: MediaComment = {
+                  createdAtUTC: new Date(reply_snippet["publishedAt"] as string).getTime(),
+                  body: reply_snippet["textDisplay"] as string,
+                  upvotes: reply_snippet["likeCount"] as number,
+                  replyCount: 0, // 回复通常没有回复，或者可以获取更深层的回复数
+                };
+                comments.push(reply_comment);
+              }
+            }
           }
         }
+
+        next_page_token = (data["nextPageToken"] as string) ?? null;
+        if (!next_page_token) break;
+
+        await new Promise((resolve) => setTimeout(resolve, 500)); // 礼貌性延迟
       }
 
-      next_page_token = (data["nextPageToken"] as string) ?? null;
-      if (!next_page_token) break;
-
-      await new Promise((resolve) => setTimeout(resolve, 500)); // 礼貌性延迟
-    }
-
-    return comments.slice(0, max_comments);
+      return comments.slice(0, max_comments);
   }
+
 
   save_to_csv(
     comments: Record<string, unknown>[],
@@ -235,60 +323,183 @@ export class YouTubeCommentCollector {
   }
 }
 
-export class youtubeClient {
+export class YoutubeClient implements SocialMediaService {
   static SCOPES = ["https://www.googleapis.com/auth/youtube.upload"];
   static CLIENT_SECRETS_FILE = process.env.YOUTUBE_CLIENT_SECRETS_FILE || "config/youtube_client.json";
   static TOKEN_PICKLE_FILE = process.env.YOUTUBE_TOKEN_FILE || "youtube_token.json"; // pickle -> JSON
   static PROXY = process.env.PROXY_URL || "http://127.0.0.1:7890";
   static proxies = {
-    http: youtubeClient.PROXY,
-    https: youtubeClient.PROXY,
+    http: YoutubeClient.PROXY,
+    https: YoutubeClient.PROXY,
   };
 
   constructor() {}
 
+  // async _get_authenticated_service(): Promise<OAuth2Client> {
+  //   let credentials: OAuth2Client | null = null;
+
+  //   // 1. 尝试从JSON文件加载已保存的凭证
+  //   if (fs.existsSync(YoutubeClient.TOKEN_PICKLE_FILE)) {
+  //     console.log("找到已保存的凭证，正在加载...");
+  //     const tokenData = JSON.parse(
+  //       fs.readFileSync(YoutubeClient.TOKEN_PICKLE_FILE, "utf8")
+  //     );
+  //     const { google } = await import("googleapis");
+  //     credentials = google.auth.fromJSON(tokenData) as OAuth2Client;
+  //     console.log("凭证加载成功");
+  //   }
+
+  //   // 2. 如果没有凭证或凭证无效，需要重新授权
+  //   if (!credentials) {
+  //     console.log("需要重新授权...");
+  //     const { google } = await import("googleapis");
+  //     const keyFile = JSON.parse(
+  //       fs.readFileSync(YoutubeClient.CLIENT_SECRETS_FILE, "utf8")
+  //     );
+  //     credentials = new google.auth.OAuth2(
+  //       keyFile.installed.client_id,
+  //       keyFile.installed.client_secret,
+  //       "http://localhost:8080"
+  //     );
+
+  //     const authUrl = credentials.generateAuthUrl({
+  //       access_type: "offline",
+  //       scope: YoutubeClient.SCOPES,
+  //     });
+  //     console.log("请在浏览器中授权...", authUrl);
+  //     // NOTE: 本地server授权流程需要在实际环境中处理
+  //   }
+
+  //   // 3. 保存凭证供下次使用
+  //   const tokenData = JSON.stringify(credentials.credentials);
+  //   fs.writeFileSync(YoutubeClient.TOKEN_PICKLE_FILE, tokenData);
+  //   console.log("凭证已保存到", YoutubeClient.TOKEN_PICKLE_FILE);
+
+  //   return credentials;
+  // }
+
   async _get_authenticated_service(): Promise<OAuth2Client> {
-    let credentials: OAuth2Client | null = null;
+  const { google } = await import("googleapis");
+  let oauth2Client: OAuth2Client | null = null;
 
-    // 1. 尝试从JSON文件加载已保存的凭证
-    if (fs.existsSync(youtubeClient.TOKEN_PICKLE_FILE)) {
-      console.log("找到已保存的凭证，正在加载...");
+  // 1. 尝试从文件加载已保存的 token
+  if (fs.existsSync(YoutubeClient.TOKEN_PICKLE_FILE)) {
+    console.log("找到已保存的凭证，正在加载...");
+    try {
       const tokenData = JSON.parse(
-        fs.readFileSync(youtubeClient.TOKEN_PICKLE_FILE, "utf8")
+        fs.readFileSync(YoutubeClient.TOKEN_PICKLE_FILE, "utf8")
       );
-      const { google } = await import("googleapis");
-      credentials = google.auth.fromJSON(tokenData) as OAuth2Client;
-      console.log("凭证加载成功");
-    }
-
-    // 2. 如果没有凭证或凭证无效，需要重新授权
-    if (!credentials) {
-      console.log("需要重新授权...");
-      const { google } = await import("googleapis");
+      
+      // 读取客户端配置
       const keyFile = JSON.parse(
-        fs.readFileSync(youtubeClient.CLIENT_SECRETS_FILE, "utf8")
+        fs.readFileSync(YoutubeClient.CLIENT_SECRETS_FILE, "utf8")
       );
-      credentials = new google.auth.OAuth2(
-        keyFile.installed.client_id,
-        keyFile.installed.client_secret,
-        "http://localhost:8080"
+      const clientSecret = keyFile.installed || keyFile.web;
+      
+      // 创建 OAuth2Client 实例
+      oauth2Client = new google.auth.OAuth2(
+        clientSecret.client_id,
+        clientSecret.client_secret,
+        clientSecret.redirect_uris?.[0] || "http://localhost:8080"
       );
-
-      const authUrl = credentials.generateAuthUrl({
-        access_type: "offline",
-        scope: youtubeClient.SCOPES,
-      });
-      console.log("请在浏览器中授权...", authUrl);
-      // NOTE: 本地server授权流程需要在实际环境中处理
+      
+      // 设置保存的凭证
+      oauth2Client.setCredentials(tokenData);
+      
+      // 检查 token 是否过期
+      const tokenExpiry = oauth2Client.credentials.expiry_date;
+      const isExpired = tokenExpiry && tokenExpiry <= Date.now();
+      
+      if (isExpired) {
+        console.log("Token 已过期，尝试刷新...");
+        try {
+          // 如果有 refresh_token，尝试刷新
+          if (oauth2Client.credentials.refresh_token) {
+            const { credentials } = await oauth2Client.refreshAccessToken();
+            oauth2Client.setCredentials(credentials);
+            // 保存刷新后的 token
+            fs.writeFileSync(YoutubeClient.TOKEN_PICKLE_FILE, JSON.stringify(credentials, null, 2));
+            console.log("Token 刷新成功");
+          } else {
+            console.log("没有 refresh_token，需要重新授权");
+            oauth2Client = null;
+          }
+        } catch (refreshError) {
+          console.log("Token 刷新失败，需要重新授权:", refreshError);
+          oauth2Client = null;
+        }
+      } else {
+        console.log("凭证加载成功，Token 有效");
+      }
+    } catch (error) {
+      console.log("加载凭证失败:", error);
+      oauth2Client = null;
     }
-
-    // 3. 保存凭证供下次使用
-    const tokenData = JSON.stringify(credentials.credentials);
-    fs.writeFileSync(youtubeClient.TOKEN_PICKLE_FILE, tokenData);
-    console.log("凭证已保存到", youtubeClient.TOKEN_PICKLE_FILE);
-
-    return credentials;
   }
+
+  // 2. 如果没有有效的凭证，需要重新授权
+  if (!oauth2Client) {
+    console.log("需要重新授权...");
+    
+    if (!fs.existsSync(YoutubeClient.CLIENT_SECRETS_FILE)) {
+      throw new Error(
+        `找不到 OAuth 客户端密钥文件: ${YoutubeClient.CLIENT_SECRETS_FILE}\n` +
+        `请从 Google Cloud Console 下载 OAuth 2.0 客户端密钥并保存到该位置`
+      );
+    }
+    
+    const keyFile = JSON.parse(
+      fs.readFileSync(YoutubeClient.CLIENT_SECRETS_FILE, "utf8")
+    );
+    
+    const clientSecret = keyFile.installed || keyFile.web;
+    
+    if (!clientSecret) {
+      throw new Error(
+        `客户端密钥文件格式错误，期望包含 "installed" 或 "web" 字段\n` +
+        `当前文件包含的字段: ${Object.keys(keyFile).join(", ")}`
+      );
+    }
+    
+    console.log(`使用 ${keyFile.installed ? 'installed' : 'web'} 格式的客户端配置`);
+    
+    const redirectUri = clientSecret.redirect_uris?.[0] || "http://localhost:8080";
+    
+    oauth2Client = new google.auth.OAuth2(
+      clientSecret.client_id,
+      clientSecret.client_secret,
+      redirectUri
+    );
+
+    // 生成授权 URL
+    const authUrl = oauth2Client.generateAuthUrl({
+      access_type: "offline",
+      scope: YoutubeClient.SCOPES,
+      prompt: "consent",  // 强制获取 refresh_token
+    });
+    
+    console.log("\n========== 需要授权 ==========");
+    console.log("请在浏览器中打开以下 URL 进行授权：");
+    console.log(authUrl);
+    console.log("================================\n");
+    console.log("授权完成后，请在回调页面获取 authorization code");
+    console.log("然后使用以下代码获取并保存 token：");
+    console.log(`
+      const { google } = require('googleapis');
+      const oauth2Client = new google.auth.OAuth2(
+        '${clientSecret.client_id}',
+        '${clientSecret.client_secret}',
+        '${redirectUri}'
+      );
+      const { tokens } = await oauth2Client.getToken('YOUR_AUTHORIZATION_CODE');
+      console.log(tokens);
+    `);
+    
+    throw new Error("需要用户授权，请按照上述步骤完成授权");
+  }
+
+  return oauth2Client;
+}
 
   async _create_resumable_session(
     access_token: string,
@@ -309,8 +520,8 @@ export class youtubeClient {
       const response = await axios.post(url, JSON.stringify(metadata), {
         headers,
         proxy: {
-          host: new URL(youtubeClient.PROXY).hostname,
-          port: parseInt(new URL(youtubeClient.PROXY).port, 10),
+          host: new URL(YoutubeClient.PROXY).hostname,
+          port: parseInt(new URL(YoutubeClient.PROXY).port, 10),
         },
         timeout: 30000,
       });
@@ -345,19 +556,85 @@ export class youtubeClient {
     }
   }
 
+  // async _upload_file_with_progress(
+  //   upload_url: string,
+  //   file_path: string,
+  //   access_token: string
+  // ): Promise<Record<string, unknown> | null> {
+  //   // 上传文件并显示进度
+  //   const file_size = fs.statSync(file_path).size;
+
+  //   const headers: Record<string, string> = {
+  //     Authorization: `Bearer ${access_token}`,
+  //     "Content-Type": "video/*",
+  //     "Content-Length": String(file_size),
+  //   };
+
+  //   console.log(`开始上传文件 (${(file_size / 1024 / 1024).toFixed(2)} MB)...`);
+
+  //   // 分块上传，显示进度
+  //   const chunk_size = 5 * 1024 * 1024; // 5MB
+  //   let uploaded = 0;
+
+  //   const fileHandle = fs.openSync(file_path, "r");
+
+  //   try {
+  //     while (uploaded < file_size) {
+  //       const chunk = Buffer.alloc(Math.min(chunk_size, file_size - uploaded));
+  //       const bytesRead = fs.readSync(fileHandle, chunk, 0, chunk.length, uploaded);
+  //       if (bytesRead === 0) break;
+
+  //       const actualChunk = chunk.slice(0, bytesRead);
+
+  //       // 计算当前块的字节范围
+  //       const start = uploaded;
+  //       const end = Math.min(uploaded + actualChunk.length - 1, file_size - 1);
+  //       const content_range = `bytes ${start}-${end}/${file_size}`;
+
+  //       headers["Content-Range"] = content_range;
+
+  //       try {
+  //         const response = await axios.put(upload_url, actualChunk, {
+  //           headers,
+  //           proxy: { host: new URL(YoutubeClient.PROXY).hostname, port: parseInt(new URL(YoutubeClient.PROXY).port, 10) },
+  //           timeout: 60000,
+  //         });
+
+  //         if (response.status === 200 || response.status === 201) {
+  //           // 上传完成
+  //           const progress = 100;
+  //           console.log(`上传进度: ${progress}%`);
+  //           return response.data;
+  //         } else if (response.status === 308) {
+  //           // 部分上传成功，继续
+  //           uploaded += actualChunk.length;
+  //           const progress = Math.floor((uploaded / file_size) * 100);
+  //           console.log(`上传进度: ${progress}%`);
+  //         } else {
+  //           console.log(`❌ 上传失败: HTTP ${response.status}`);
+  //           console.log(`响应: ${response.data}`);
+  //           return null;
+  //         }
+  //       } catch (e) {
+  //         console.log(`❌ 上传出错: ${e}`);
+  //         return null;
+  //       }
+  //     }
+  //   } finally {
+  //     fs.closeSync(fileHandle);
+  //   }
+
+  //   return null;
+  // }
+
+  // ---------------------------------
   async _upload_file_with_progress(
     upload_url: string,
-    file_path: string,
+    file: File,
     access_token: string
   ): Promise<Record<string, unknown> | null> {
     // 上传文件并显示进度
-    const file_size = fs.statSync(file_path).size;
-
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${access_token}`,
-      "Content-Type": "video/*",
-      "Content-Length": String(file_size),
-    };
+    const file_size = file.size;
 
     console.log(`开始上传文件 (${(file_size / 1024 / 1024).toFixed(2)} MB)...`);
 
@@ -365,27 +642,45 @@ export class youtubeClient {
     const chunk_size = 5 * 1024 * 1024; // 5MB
     let uploaded = 0;
 
-    const fileHandle = fs.openSync(file_path, "r");
-
     try {
       while (uploaded < file_size) {
-        const chunk = Buffer.alloc(Math.min(chunk_size, file_size - uploaded));
-        const bytesRead = fs.readSync(fileHandle, chunk, 0, chunk.length, uploaded);
-        if (bytesRead === 0) break;
-
-        const actualChunk = chunk.slice(0, bytesRead);
+        // 读取文件块
+        const chunk_end = Math.min(uploaded + chunk_size, file_size);
+        const chunk = file.slice(uploaded, chunk_end);
+        
+        // 将 Blob 转换为 ArrayBuffer 再转换为 Buffer（如果是 Node.js 环境）
+        // 如果在浏览器环境，直接使用 Blob
+        let chunkData: Blob | Buffer;
+        
+        // 判断运行环境
+        if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+          // Node.js 环境：将 Blob 转换为 Buffer
+          const arrayBuffer = await chunk.arrayBuffer();
+          chunkData = Buffer.from(arrayBuffer);
+        } else {
+          // 浏览器环境：直接使用 Blob
+          chunkData = chunk;
+        }
 
         // 计算当前块的字节范围
         const start = uploaded;
-        const end = Math.min(uploaded + actualChunk.length - 1, file_size - 1);
+        const end = Math.min(uploaded + chunk_size - 1, file_size - 1);
         const content_range = `bytes ${start}-${end}/${file_size}`;
 
-        headers["Content-Range"] = content_range;
+        const headers: Record<string, string> = {
+          Authorization: `Bearer ${access_token}`,
+          "Content-Type": "video/*",
+          "Content-Length": String(chunk_end - uploaded),
+        };
+
+        // 只在有 Content-Range 时添加（非第一个块或非完整上传）
+        if (uploaded > 0) {
+          headers["Content-Range"] = content_range;
+        }
 
         try {
-          const response = await axios.put(upload_url, actualChunk, {
+          const response = await axios.put(upload_url, chunkData, {
             headers,
-            proxy: { host: new URL(youtubeClient.PROXY).hostname, port: parseInt(new URL(youtubeClient.PROXY).port, 10) },
             timeout: 60000,
           });
 
@@ -396,12 +691,12 @@ export class youtubeClient {
             return response.data;
           } else if (response.status === 308) {
             // 部分上传成功，继续
-            uploaded += actualChunk.length;
+            uploaded += (chunk_end - uploaded);
             const progress = Math.floor((uploaded / file_size) * 100);
             console.log(`上传进度: ${progress}%`);
           } else {
             console.log(`❌ 上传失败: HTTP ${response.status}`);
-            console.log(`响应: ${response.data}`);
+            console.log(`响应: ${JSON.stringify(response.data)}`);
             return null;
           }
         } catch (e) {
@@ -409,30 +704,49 @@ export class youtubeClient {
           return null;
         }
       }
-    } finally {
-      fs.closeSync(fileHandle);
+    } catch (e) {
+      console.log(`❌ 读取文件出错: ${e}`);
+      return null;
     }
 
     return null;
   }
 
-  // ---------------------------------
-  async upload_video(
+  // 辅助方法：从 YouTube URL 中提取视频 ID
+  private _extractVideoId(url: string): string | null {
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/]+)/,
+      /youtube\.com\/watch\?.*v=([^&]+)/,
+      /youtu\.be\/([^?]+)/,
+      /youtube\.com\/shorts\/([^?]+)/, // 支持 Shorts 视频
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    return null;
+  }
+  
+  //-------------------------------------
+  getPlatformName(): Platform {
+    return Platform.YouTube;
+  }
+
+  async uploadVideo(
+    file:File,
+    video_info: VideoInfo,
     credentials: OAuth2Client,
-    video_info: VideoInfo
-  ): Promise<Record<string, unknown> | null> {
+  ): Promise<boolean> {
     // 1. 准备视频元数据
     const metadata = {
-      snippet: {
-        title: video_info.snippet.title,
-        description: video_info.snippet.description,
-        tags: video_info.snippet.tags,
-        categoryId: video_info.snippet.categoryId,
-      },
-      status: {
-        privacyStatus: video_info.status.privacyStatus,
-        madeForKids: video_info.status.selfDeclaredMadeForKids,
-      },
+        title: video_info.title,
+        description: video_info.description,
+        tags: video_info.tags,
+        categoryId: video_info.categoryId,
+        privacyStatus: video_info.privacyStatus,
     };
 
     // 2. 获取访问令牌
@@ -444,13 +758,13 @@ export class youtubeClient {
       metadata
     );
     if (!upload_url) {
-      return null;
+      return false;
     }
 
     // 4. 上传文件
     const result = await this._upload_file_with_progress(
       upload_url,
-      video_info.video_file_path,
+      file,
       access_token
     );
 
@@ -458,20 +772,100 @@ export class youtubeClient {
       console.log("✅ 上传成功！");
       console.log(`   视频ID: ${result["id"]}`);
       console.log(`   视频URL: https://youtu.be/${result["id"]}`);
-      return result;
+      return true;
     } else {
       console.log("❌ 上传失败");
-      return null;
+      return false;
     }
   }
 
-async crawl_video_comments(video_id: string): Promise<VideoComments[]> {
-    const commentcollector = new YouTubeCommentCollector(API_KEY, proxies);
-    const comments: VideoComments[] = await commentcollector.get_video_comments(video_id); // ← await
-    return comments;
-}
+  async getComments(video_url: string): Promise<MediaComment[]> {
+      const commentcollector = new YouTubeCommentCollector(API_KEY, proxies);
+      const comments: MediaComment[] = await commentcollector.get_video_comments(video_url); // ← await
+      return comments;
+  }
 
-  async get_video_info(video_id: string): Promise<void> {
+  async getVideoData(video_url: string): Promise<VideoData> {
+      try {
+        // 从 URL 中提取视频 ID
+        const video_id = this._extractVideoId(video_url);
+        if (!video_id) {
+          throw new Error("无效的 YouTube 视频 URL");
+        }
+
+        console.log(`正在获取视频数据: ${video_id}`);
+
+        // 使用 YouTube Data API v3
+        const api_key = process.env.YOUTUBE_API_KEY;
+        if (!api_key) {
+          throw new Error("未设置 YOUTUBE_API_KEY 环境变量");
+        }
+
+        // 1. 获取视频基本信息
+        const videoUrl = `https://www.googleapis.com/youtube/v3/videos`;
+        const videoParams = {
+          part: "snippet,statistics",
+          id: video_id,
+          key: api_key,
+        };
+
+        const videoResponse = await axios.get(videoUrl, {
+          params: videoParams,
+          proxy: {
+            host: new URL(YoutubeClient.PROXY).hostname,
+            port: parseInt(new URL(YoutubeClient.PROXY).port, 10),
+          },
+          timeout: 30000,
+        });
+
+        if (videoResponse.status !== 200 || !videoResponse.data.items || videoResponse.data.items.length === 0) {
+          throw new Error("未找到视频数据");
+        }
+
+        const video = videoResponse.data.items[0];
+        const snippet = video.snippet;
+        const statistics = video.statistics;
+
+        // 2. 获取视频评论
+        const comments = await this.getComments(video_url);
+
+        // 3. 构建 VideoData 对象
+        const videoData: VideoData = {
+          name: snippet.title,
+          viewCount: parseInt(statistics.viewCount || "0"),
+          likeCount: parseInt(statistics.likeCount || "0"),
+          shareCount: 0, // YouTube API 不直接提供分享数，可以通过其他方式获取或设为0
+          commentCount: parseInt(statistics.commentCount || "0"),
+          comments: comments,
+          createTime: new Date(snippet.publishedAt).getTime(), // 转换为时间戳
+        };
+
+        console.log(`✅ 成功获取视频数据: ${videoData.name}`);
+        console.log(`   观看次数: ${videoData.viewCount}`);
+        console.log(`   点赞数: ${videoData.likeCount}`);
+        console.log(`   评论数: ${videoData.commentCount}`);
+        
+        return videoData;
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          console.error(`❌ API 请求失败: ${error.message}`);
+          if (error.response) {
+            console.error(`响应状态: ${error.response.status}`);
+            console.error(`响应数据: ${JSON.stringify(error.response.data)}`);
+          }
+        } else {
+          console.error(`❌ 获取视频数据失败: ${error}`);
+        }
+        throw error;
+      }
+    }
+  // ----------------
+  uploadArticle(file:File, metadata:ArticleInfo):Promise<boolean> {
     // pass
+    return Promise.resolve(true);
+  }
+
+  async getArticleData(article_url: string): Promise<ArticleData> {
+    return Promise.resolve({} as ArticleData);
   }
 }
