@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { globalStyles } from "@/components/ui/design-tokens";
-
+import {BuyerInfo} from "../../../lib/crawler/tradewheelScraper"
 // ── Types ──────────────────────────────────────────────────────────────
 interface ProfilePost {
   title: string;
@@ -276,7 +276,7 @@ function AcquisitionTab() {
   const [region, setRegion] = useState("CN");
   const [limit, setLimit] = useState(20);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ leads: Lead[]; total: number; download_token: string } | null>(null);
+  const [result, setResult] = useState<{ leads: BuyerInfo[]; total: number; download_token: string } | null>(null);
   const [error, setError] = useState("");
 
   const regions = [
@@ -357,35 +357,85 @@ function AcquisitionTab() {
             </div>
           )}
           {result && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ fontSize: 14, color: "var(--text-muted)" }}>共找到 <strong style={{ color: "var(--text)" }}>{result.total}</strong> 条线索</div>
-                <button className="btn btn-outline" style={{ fontSize: 12, padding: "6px 14px" }}
-                  onClick={() => window.open(`/api/insights/acquisition/download?token=${result.download_token}`, "_blank")}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  导出 CSV
-                </button>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {result.leads.map((lead) => (
-                  <div key={lead.lead_id} className="card" style={{ padding: 20 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <div>
-                        <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>{lead.company}</div>
-                        <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>联系人：{lead.contact_name}</div>
-                      </div>
-                      <a href={lead.source_link} target="_blank" rel="noreferrer" style={{ color: "var(--accent)", fontSize: 12 }}>来源链接 →</a>
-                    </div>
-                    <div className="divider" style={{ margin: "12px 0" }} />
-                    <div style={{ display: "flex", gap: 24, fontSize: 13, color: "var(--text-secondary)" }}>
-                      <span>📞 {lead.phone_number}</span>
-                      <span>✉️ {lead.email}</span>
-                    </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontSize: 14, color: "var(--text-muted)" }}>
+                    共找到 <strong style={{ color: "var(--text)" }}>{result.total}</strong> 条线索
                   </div>
-                ))}
+                  <button 
+                    className="btn btn-outline" 
+                    style={{ fontSize: 12, padding: "6px 14px" }}
+                    onClick={() => window.open(`/api/insights/acquisition/download?token=${result.download_token}`, "_blank")}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    导出 CSV
+                  </button>
+                </div>
+                
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {result.leads.map((lead, index) => (
+                    <div key={index} className="card" style={{ padding: 20 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div style={{ flex: 1 }}>
+                          {/* 标题/采购需求 */}
+                          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>
+                            {lead.title}
+                          </div>
+                          
+                          {/* 买家信息行 */}
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "12px 24px", marginBottom: 8 }}>
+                            <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                              👤 买家：{lead.buyerName || lead.buyerInitial || "未提供"}
+                            </span>
+                            <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                              📦 数量：{lead.quantity}
+                            </span>
+                            <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                              🌍 国家：{lead.country}
+                            </span>
+                          </div>
+                          
+                          {/* 描述 */}
+                          {lead.description && (
+                            <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 8, lineHeight: 1.5 }}>
+                              {lead.description.length > 120 
+                                ? `${lead.description.substring(0, 120)}...` 
+                                : lead.description}
+                            </div>
+                          )}
+                          
+                          {/* 元信息行 */}
+                          <div style={{ display: "flex", gap: 16, marginTop: 10, fontSize: 12, color: "var(--text-muted)" }}>
+                            <span>📅 发布日期：{lead.datePosted || "未注明"}</span>
+                            <span>💬 报价数：{lead.quotesReceived} 条</span>
+                            <span>
+                              ✅ 验证：
+                              {lead.isVerified.email && <span style={{ marginLeft: 4 }}>📧</span>}
+                              {lead.isVerified.phone && <span style={{ marginLeft: 4 }}>📱</span>}
+                              {!lead.isVerified.email && !lead.isVerified.phone && "无"}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* 来源链接 */}
+                        <a 
+                          href={lead.url} 
+                          target="_blank" 
+                          rel="noreferrer" 
+                          style={{ color: "var(--accent)", fontSize: 12, marginLeft: 12, whiteSpace: "nowrap" }}
+                        >
+                          来源链接 →
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
       </div>
     </div>
