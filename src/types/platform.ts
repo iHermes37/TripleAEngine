@@ -1,12 +1,13 @@
 import { OAuth2Client } from "google-auth-library/build/src/auth/oauth2client";
 import { ArticleData, ArticleInfo } from "./article";
 import { MediaComment } from "./comment";
-import { Platform } from "./constant";
+import { EcommercePlatform, MediaPlatform } from "./constant";
 import { VideoData, VideoInfo } from "./video";
+import { ProductInfo } from "./product";
 
 export interface SocialMediaService {
     // 
-    getPlatformName(): Platform;
+    getPlatformName(): MediaPlatform;
 
     //
     getComments(url: string): Promise<MediaComment[]>;
@@ -22,4 +23,12 @@ export interface SocialMediaService {
 
     // 
     _get_authenticated_service(): Promise<OAuth2Client>;
+}
+
+
+export interface EcommerceService {
+    
+    getPlatformName(): EcommercePlatform;
+
+    getProductInfo(keywords: string): Promise<ProductInfo>;
 }

@@ -4,8 +4,8 @@ import { VideoData, VideoInfo } from "@/types/video";
 import { OAuth2Client } from "google-auth-library";
 import { google } from "googleapis";
 import { HttpsProxyAgent } from "https-proxy-agent";
-import { SocialMediaService } from "@/types/media";
-import { Platform } from "@/types/constant";
+import { SocialMediaService } from "@/types/platform";
+import { MediaPlatform } from "@/types/constant";
 import { ArticleData, ArticleInfo } from "@/types/article";
 import { MediaComment } from "@/types/comment";
 import * as os from "os";
@@ -355,8 +355,8 @@ export class YoutubeClient implements SocialMediaService {
     return null;
   }
 
-  getPlatformName(): Platform {
-    return Platform.YouTube;
+  getPlatformName(): MediaPlatform {
+    return MediaPlatform.YouTube;
   }
 
   async getComments(video_url: string): Promise<MediaComment[]> {

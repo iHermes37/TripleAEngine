@@ -6,3 +6,10 @@ export interface MediaComment{
     upvotes: number;
     replyCount: number;
 }
+
+
+export interface Ecomment {
+    createdAtUTC: number;
+    body: string;
+    upvotes: number;
+}

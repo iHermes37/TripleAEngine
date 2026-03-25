@@ -1,12 +1,12 @@
-import { SocialMediaManager } from "@/lib/manager/media_adapter";
-import { Platform } from "@/types/constant";
+import { SocialMediaManager } from "@/lib/manager/media";
+import { MediaPlatform } from "@/types/constant";
 import { VideoInfo } from "@/types/video";
 import { NextRequest, NextResponse } from "next/server";
 
 // 请求体接口（支持 FormData）
 interface PublishRequest {
   video: File;
-  platforms: Array<Platform>;
+  platforms: Array<MediaPlatform>;
   post_config: {
     title: string;
     privacy: "public" | "private" | "unlisted";
@@ -18,7 +18,7 @@ interface PublishRequest {
 
 // 发布结果接口
 interface PublishResult {
-  platform: Platform;
+  platform: MediaPlatform;
   status: "success" | "failed" | "scheduled";
   post_url?: string;
   video_id?: string;
@@ -45,7 +45,7 @@ interface PublishResult {
 // 请求体接口（支持 FormData）
 interface PublishRequest {
   video: File;
-  platforms: Array<Platform>;
+  platforms: Array<MediaPlatform>;
   post_config: {
     title: string;
     privacy: "public" | "private" | "unlisted";
@@ -58,7 +58,7 @@ interface PublishRequest {
 
 // 发布结果接口
 interface PublishResult {
-  platform: Platform;
+  platform: MediaPlatform;
   status: "success" | "failed" | "scheduled";
   post_url?: string;
   video_id?: string;
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     }
     
     // 解析 JSON 数据
-    const platforms: Platform[] = JSON.parse(platformsStr);
+    const platforms: MediaPlatform[] = JSON.parse(platformsStr);
     const post_config = JSON.parse(postConfigStr);
     
     if (!platforms || platforms.length === 0) {
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
     const isScheduled = !!post_config.schedule_at;
     
     console.log(`开始处理发布任务: ${publish_id}`);
-    console.log(`目标平台: ${platforms.map(p => Platform[p]).join(", ")}`);
+    console.log(`目标平台: ${platforms.map(p => MediaPlatform[p]).join(", ")}`);
     console.log(`视频信息: ${video.name} (${(video.size / 1024 / 1024).toFixed(2)} MB)`);
     console.log(`是否定时发布: ${isScheduled}`);
     
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
     //       publish_id,
     //       status: "scheduled",
     //       scheduled_at: post_config.schedule_at,
-    //       platforms: platforms.map(p => Platform[p]),
+    //       platforms: platforms.map(p => MediaPlatform[p]),
     //     },
     //   });
     // }
@@ -168,18 +168,18 @@ export async function POST(request: NextRequest) {
     const results = await Promise.allSettled(
       platforms.map(async (platform) => {
         try {
-          console.log(`开始上传到平台: ${Platform[platform]}`);
+          console.log(`开始上传到平台: ${MediaPlatform[platform]}`);
           
           // 获取平台客户端
           const client = manager.getSocialMediaClient(platform);
           
           // 获取认证凭证（根据平台获取）
           let credentials;
-          if (platform === Platform.YouTube) {
+          if (platform === MediaPlatform.YouTube) {
             credentials = await client._get_authenticated_service();
           }
           // 添加其他平台的认证逻辑
-          // else if (platform === Platform.TikTok) {
+          // else if (platform === MediaPlatform.TikTok) {
           //   credentials = await getTikTokCredentials();
           // }
           
@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
           if (success) {
             // 这里应该从上传结果中获取实际的视频 ID 和 URL
             // 目前简化处理，实际需要根据平台返回的结果来填充
-            // const postUrl = getPostUrlByPlatform(platform, "temp_id");
+            // const postUrl = getPostUrlByMediaPlatform(platform, "temp_id");
             
             return {
               platform,
@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
             throw new Error("上传失败");
           }
         } catch (error) {
-          console.error(`上传到 ${Platform[platform]} 失败:`, error);
+          console.error(`上传到 ${MediaPlatform[platform]} 失败:`, error);
           return {
             platform,
             status: "failed" as const,
@@ -218,7 +218,7 @@ export async function POST(request: NextRequest) {
         return result.value;
       } else {
         return {
-          platform: Platform.YouTube, // 默认值，实际不会到这里
+          platform: MediaPlatform.YouTube, // 默认值，实际不会到这里
           status: "failed",
           error: result.reason?.message || "未知错误",
         };
@@ -244,7 +244,7 @@ export async function POST(request: NextRequest) {
           total: platforms.length,
           success: successCount,
           failed: failedCount,
-          platforms: platforms.map(p => Platform[p]),
+          platforms: platforms.map(p => MediaPlatform[p]),
         },
       },
     });
@@ -261,15 +261,15 @@ export async function POST(request: NextRequest) {
 }
 
 // 辅助函数：根据平台获取视频 URL
-function getPostUrlByPlatform(platform: Platform, videoId: string): string {
+function getPostUrlByMediaPlatform(platform: MediaPlatform, videoId: string): string {
   switch (platform) {
-    case Platform.YouTube:
+    case MediaPlatform.YouTube:
       return `https://youtu.be/${videoId}`;
-    case Platform.TikTok:
+    case MediaPlatform.TikTok:
       return `https://www.tiktok.com/@username/video/${videoId}`;
-    case Platform.XiaoHongShu:
+    case MediaPlatform.XiaoHongShu:
       return `https://www.xiaohongshu.com/explore/${videoId}`;
-    case Platform.Instagram:
+    case MediaPlatform.Instagram:
       return `https://www.instagram.com/p/${videoId}`;
     default:
       return "";
@@ -281,13 +281,13 @@ async function saveScheduledPublish(
   publishId: string,
   video: File,
   videoInfo: VideoInfo,
-  platforms: Platform[],
+  platforms: MediaPlatform[],
   scheduledAt: Date
 ): Promise<void> {
   // TODO: 实现数据库保存逻辑
   console.log(`保存定时发布任务: ${publishId}`);
   console.log(`  - 计划时间: ${scheduledAt.toISOString()}`);
-  console.log(`  - 平台: ${platforms.map(p => Platform[p]).join(", ")}`);
+  console.log(`  - 平台: ${platforms.map(p => MediaPlatform[p]).join(", ")}`);
   console.log(`  - 视频: ${video.name}`);
   
   // 示例：保存到数据库
