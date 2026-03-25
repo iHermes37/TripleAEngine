@@ -184,11 +184,7 @@ export async function POST(request: NextRequest) {
           // }
           
           // 上传视频
-          const success = await client.uploadVideo(
-            video,
-            videoInfo,
-            credentials
-          );
+          const success = await client.uploadVideo(video, videoInfo);
           
           if (success) {
             // 这里应该从上传结果中获取实际的视频 ID 和 URL

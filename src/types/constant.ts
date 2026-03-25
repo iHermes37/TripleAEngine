@@ -5,3 +5,6 @@ export enum Platform {
   XiaoHongShu,  // 2
   Instagram,    // 3
 }
+
+
+// export const PlatformName = [
