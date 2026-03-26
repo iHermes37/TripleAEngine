@@ -295,6 +295,7 @@ export class YoutubeClient implements SocialMediaService {
   async uploadVideo(
     file: File,
     video_info: VideoInfo,
+    platform?: MediaPlatform,
     credentials?: OAuth2Client
   ): Promise<boolean> {
     const client = credentials ?? await this._get_authenticated_service();

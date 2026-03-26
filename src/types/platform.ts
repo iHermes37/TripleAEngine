@@ -18,7 +18,7 @@ export interface SocialMediaService {
 
     // 上传
     uploadArticle(file:File, metadata:ArticleInfo): Promise<boolean>;
-    uploadVideo(file: File, metadata:VideoInfo,credentials?: OAuth2Client): Promise<boolean>;
+    uploadVideo(file: File, metadata:VideoInfo,platform?: MediaPlatform,credentials?: OAuth2Client): Promise<boolean>;
 
 
     // 
@@ -31,4 +31,5 @@ export interface EcommerceService {
     getPlatformName(): EcommercePlatform;
 
     getProductInfo(keywords: string): Promise<ProductInfo>;
+    getProductList(keywords: string,maxPages :number): Promise<ProductInfo[]>;
 }

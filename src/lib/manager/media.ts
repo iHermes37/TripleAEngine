@@ -1,24 +1,24 @@
-import { SocialMediaService } from "@/types/media";
-import { YoutubeClient } from "../media/youtube";
-import { Platform } from "@/types/constant";
+import { SocialMediaService } from "../../types/platform";
+import { YoutubeClient } from "../../lib/platform/media/youtube";
+import { MediaPlatform } from "@/types/constant";
 import { VideoData, VideoInfo } from "@/types/video";
 import { OAuth2Client } from "google-auth-library";
 import { ArticleData, ArticleInfo } from "@/types/article";
 import { MediaComment } from "@/types/comment";
 
 
-export class SocialMediaManager {
+export class SocialMediaManager implements SocialMediaService {
     private youtube_client: YoutubeClient;
-    private social_media_map: Map<Platform, SocialMediaService>;
+    private social_media_map: Map<MediaPlatform, SocialMediaService>;
     private current_media: SocialMediaService | null;
 
     constructor() {
-        this.social_media_map = new Map<Platform, SocialMediaService>();
+        this.social_media_map = new Map<MediaPlatform, SocialMediaService>();
         this.current_media = null;
         this.youtube_client = new YoutubeClient();
 
          // 在构造函数中注册所有平台
-        this._registerAllPlatforms();
+        this._registerAllMediaPlatforms();
     }
 
     // /**
@@ -29,9 +29,9 @@ export class SocialMediaManager {
     // registerSocialMedias(media: SocialMediaService[]): boolean {
     //     try {
     //         for (const service of media) {
-    //             const platform = service.getPlatformName();
+    //             const platform = service.getMediaPlatformName();
     //             this.social_media_map.set(platform, service);
-    //             console.log(`✅ 已注册平台: ${Platform[platform]}`);
+    //             console.log(`✅ 已注册平台: ${MediaPlatform[platform]}`);
     //         }
     //         console.log(`✅ 成功注册 ${media.length} 个社交媒体平台`);
     //         return true;
@@ -40,27 +40,27 @@ export class SocialMediaManager {
     //         return false;
     //     }
     // }
-    private _registerAllPlatforms(): void {
+    private _registerAllMediaPlatforms(): void {
         try {
             // 注册 YouTube
-            this.social_media_map.set(Platform.YouTube, this.youtube_client);
-            console.log(`✅ 已注册平台: ${Platform[Platform.YouTube]}`);
+            this.social_media_map.set(MediaPlatform.YouTube, this.youtube_client);
+            console.log(`✅ 已注册平台: ${MediaPlatform[MediaPlatform.YouTube]}`);
             
             // 可以在这里添加其他平台
             // 例如：注册 TikTok
             // const tiktokClient = new TikTokClient();
-            // this.social_media_map.set(Platform.TikTok, tiktokClient);
-            // console.log(`✅ 已注册平台: ${Platform[Platform.TikTok]}`);
+            // this.social_media_map.set(MediaPlatform.TikTok, tiktokClient);
+            // console.log(`✅ 已注册平台: ${MediaPlatform[MediaPlatform.TikTok]}`);
             
             // 注册小红书
             // const xhsClient = new XiaoHongShuClient();
-            // this.social_media_map.set(Platform.XiaoHongShu, xhsClient);
-            // console.log(`✅ 已注册平台: ${Platform[Platform.XiaoHongShu]}`);
+            // this.social_media_map.set(MediaPlatform.XiaoHongShu, xhsClient);
+            // console.log(`✅ 已注册平台: ${MediaPlatform[MediaPlatform.XiaoHongShu]}`);
             
             // 注册 Instagram
             // const instagramClient = new InstagramClient();
-            // this.social_media_map.set(Platform.Instagram, instagramClient);
-            // console.log(`✅ 已注册平台: ${Platform[Platform.Instagram]}`);
+            // this.social_media_map.set(MediaPlatform.Instagram, instagramClient);
+            // console.log(`✅ 已注册平台: ${MediaPlatform[MediaPlatform.Instagram]}`);
             
             console.log(`✅ 成功注册 ${this.social_media_map.size} 个社交媒体平台`);
         } catch (error) {
@@ -74,10 +74,10 @@ export class SocialMediaManager {
      * @param platform 平台类型
      * @returns 社交媒体服务实例
      */
-    getSocialMediaClient(platform: Platform): SocialMediaService {
+    getSocialMediaClient(platform: MediaPlatform): SocialMediaService {
         const client = this.social_media_map.get(platform);
         if (!client) {
-            throw new Error(`未找到平台 ${Platform[platform]} 的客户端，请先注册`);
+            throw new Error(`未找到平台 ${MediaPlatform[platform]} 的客户端，请先注册`);
         }
         return client;
     }
@@ -86,16 +86,16 @@ export class SocialMediaManager {
      * 设置当前使用的社交媒体平台
      * @param platform 平台类型
      */
-    setCurrentPlatform(platform: Platform): void {
+    setCurrentMediaPlatform(platform: MediaPlatform): void {
         this.current_media = this.getSocialMediaClient(platform);
-        console.log(`已切换到平台: ${Platform[platform]}`);
+        console.log(`已切换到平台: ${MediaPlatform[platform]}`);
     }
 
     /**
      * 获取当前平台
      * @returns 当前平台实例
      */
-    getCurrentPlatform(): SocialMediaService | null {
+    getCurrentMediaPlatform(): SocialMediaService | null {
         return this.current_media;
     }
 
@@ -103,7 +103,7 @@ export class SocialMediaManager {
      * 获取所有已注册的平台
      * @returns 已注册的平台列表
      */
-    getRegisteredPlatforms(): Platform[] {
+    getRegisteredMediaPlatforms(): MediaPlatform[] {
         return Array.from(this.social_media_map.keys());
     }
 
@@ -112,7 +112,7 @@ export class SocialMediaManager {
      * @param platform 平台类型
      * @returns 是否已注册
      */
-    isPlatformRegistered(platform: Platform): boolean {
+    isMediaPlatformRegistered(platform: MediaPlatform): boolean {
         return this.social_media_map.has(platform);
     }
 
@@ -127,7 +127,7 @@ export class SocialMediaManager {
     async uploadVideo(
         file: File,
         videoInfo: VideoInfo,
-        platform?: Platform,
+        platform?: MediaPlatform,
         credentials?: OAuth2Client
     ): Promise<boolean> {
         try {
@@ -141,7 +141,7 @@ export class SocialMediaManager {
                 throw new Error("未指定平台且未设置当前平台");
             }
 
-            console.log(`正在上传视频到 ${Platform[client.getPlatformName()]}...`);
+            console.log(`正在上传视频到 ${MediaPlatform[client.getPlatformName()]}...`);
             return await client.uploadVideo(file, videoInfo, credentials);
         } catch (error) {
             console.error(`❌ 上传视频失败: ${error}`);
@@ -159,7 +159,7 @@ export class SocialMediaManager {
     async uploadArticle(
         file: File,
         articleInfo: ArticleInfo,
-        platform?: Platform
+        platform?: MediaPlatform
     ): Promise<boolean> {
         try {
             let client: SocialMediaService;
@@ -172,7 +172,7 @@ export class SocialMediaManager {
                 throw new Error("未指定平台且未设置当前平台");
             }
 
-            console.log(`正在上传文章到 ${Platform[client.getPlatformName()]}...`);
+            console.log(`正在上传文章到 ${MediaPlatform[client.getPlatformName()]}...`);
             return await client.uploadArticle(file, articleInfo);
         } catch (error) {
             console.error(`❌ 上传文章失败: ${error}`);
@@ -186,7 +186,7 @@ export class SocialMediaManager {
      * @param platform 目标平台（可选，默认使用当前平台）
      * @returns 视频数据
      */
-    async getVideoData(url: string, platform?: Platform): Promise<VideoData> {
+    async getVideoData(url: string, platform?: MediaPlatform): Promise<VideoData> {
         try {
             let client: SocialMediaService;
             
@@ -211,7 +211,7 @@ export class SocialMediaManager {
      * @param platform 目标平台（可选，默认使用当前平台）
      * @returns 文章数据
      */
-    async getArticleData(url: string, platform?: Platform): Promise<ArticleData> {
+    async getArticleData(url: string, platform?: MediaPlatform): Promise<ArticleData> {
         try {
             let client: SocialMediaService;
             
@@ -236,7 +236,7 @@ export class SocialMediaManager {
      * @param platform 目标平台（可选，默认使用当前平台）
      * @returns 评论列表
      */
-    async getComments(url: string, platform?: Platform): Promise<MediaComment[]> {
+    async getComments(url: string, platform?: MediaPlatform): Promise<MediaComment[]> {
         try {
             let client: SocialMediaService;
             
@@ -260,7 +260,7 @@ export class SocialMediaManager {
      * @param platform 要移除的平台
      * @returns 是否移除成功
      */
-    unregisterPlatform(platform: Platform): boolean {
+    unregisterMediaPlatform(platform: MediaPlatform): boolean {
         const removed = this.social_media_map.delete(platform);
         if (removed && this.current_media?.getPlatformName() === platform) {
             this.current_media = null;
@@ -271,7 +271,7 @@ export class SocialMediaManager {
     /**
      * 清空所有平台
      */
-    clearAllPlatforms(): void {
+    clearAllMediaPlatforms(): void {
         this.social_media_map.clear();
         this.current_media = null;
         console.log("已清空所有平台");
@@ -287,7 +287,7 @@ export class SocialMediaManager {
 // const credentials = await manager.getYoutubeClient()._get_authenticated_service();
 
 // // 设置当前平台
-// manager.setCurrentPlatform(Platform.YouTube);
+// manager.setCurrentMediaPlatform(MediaPlatform.YouTube);
 
 // // 上传视频
 // const videoInfo: VideoInfo = {
@@ -307,5 +307,5 @@ export class SocialMediaManager {
 // const comments = await manager.getComments("https://youtu.be/xxx");
 
 // // 检查已注册的平台
-// console.log(manager.getRegisteredPlatforms()); // [Platform.YouTube]
-// console.log(manager.getPlatformCount()); // 1
+// console.log(manager.getRegisteredMediaPlatforms()); // [MediaPlatform.YouTube]
+// console.log(manager.getMediaPlatformCount()); // 1
